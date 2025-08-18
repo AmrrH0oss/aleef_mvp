@@ -5,8 +5,8 @@
       "destination": "/index.html"
     }
   ],
-  "buildCommand": "flutter build web --release",
+  "buildCommand": "echo 'Using pre-built files'",
   "outputDirectory": "build/web",
   "framework": null,
-  "installCommand": "echo 'Flutter installation handled by Vercel'"
+  "installCommand": "echo 'No installation needed'"
 }
