@@ -219,8 +219,16 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
       shrinkWrap: true,
       itemCount: _filteredClinics.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) =>
-          ClinicCard(clinic: _filteredClinics.elementAt(index)),
+      itemBuilder: (context, index) => ClinicCard(
+        clinic: _filteredClinics.elementAt(index),
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            '/clinicProfile',
+            arguments: _filteredClinics.elementAt(index),
+          );
+        },
+      ),
     );
   }
 
@@ -243,8 +251,16 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
         crossAxisSpacing: 16,
       ),
       itemCount: _filteredClinics.length,
-      itemBuilder: (context, index) =>
-          ClinicCard(clinic: _filteredClinics.elementAt(index)),
+      itemBuilder: (context, index) => ClinicCard(
+        clinic: _filteredClinics.elementAt(index),
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            '/clinicProfile',
+            arguments: _filteredClinics.elementAt(index),
+          );
+        },
+      ),
     );
   }
 

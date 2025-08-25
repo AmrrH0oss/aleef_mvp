@@ -4,6 +4,7 @@ import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/social_row.dart';
+import '../utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,13 +29,34 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Validate email format using validators
+    final email = _emailController.text.trim();
+    if (!Validators.isValidEmail(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Invalid email format'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
+
+    // Check if password is empty
+    final password = _passwordController.text;
+    if (password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please enter your password'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      final error = await AuthService.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      final error = await AuthService.signIn(email: email, password: password);
 
       if (!mounted) return;
 
@@ -97,17 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     label: 'Email',
                     keyboardType: TextInputType.emailAddress,
                     prefixIcon: const Icon(Icons.email_outlined),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!RegExp(
-                        r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                      ).hasMatch(value.trim())) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
+                    validator: (value) => Validators.validateEmail(value ?? ''),
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(

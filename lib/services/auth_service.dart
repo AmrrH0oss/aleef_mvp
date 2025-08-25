@@ -63,6 +63,51 @@ class AuthService {
     }
   }
 
+  // Sign up with email, password and profile data
+  static Future<String?> signUpWithProfile({
+    required String email,
+    required String password,
+    required String fullName,
+    required String phone,
+    required String city,
+    required String district,
+  }) async {
+    try {
+      // Step 1: Sign up the user with Supabase auth
+      final AuthResponse response = await _supabase.auth.signUp(
+        email: email,
+        password: password,
+      );
+
+      if (response.user == null) {
+        return 'Failed to create user account';
+      }
+
+      // Step 2: Get the user ID from the response
+      final userId = response.user!.id;
+
+      // Step 3: Insert profile into "PetOwners" table
+      try {
+        await _supabase.from('PetOwners').insert({
+          'user_id': userId,
+          'full_name': fullName,
+          'phone': phone,
+          'city': city,
+          'district': district,
+        });
+      } catch (profileError) {
+        // If profile creation fails, we should clean up the auth user
+        // But since Supabase doesn't allow deleting users from client,
+        // we'll just return the error
+        return 'Account created but profile setup failed: $profileError';
+      }
+
+      return null; // Success
+    } catch (e) {
+      return _handleAuthError(e);
+    }
+  }
+
   // Sign in with email and password
   static Future<String?> signIn({
     required String email,
