@@ -8,6 +8,9 @@ class Clinic {
   final String? imageUrl;
   final DateTime? createdAt;
   final double? examinationPrice;
+  final String? city;
+  final String? district;
+  final int? reviewsCount;
 
   const Clinic({
     required this.clinicId,
@@ -19,6 +22,9 @@ class Clinic {
     this.imageUrl,
     this.createdAt,
     this.examinationPrice,
+    this.city,
+    this.district,
+    this.reviewsCount,
   });
 
   factory Clinic.fromMap(Map<String, dynamic> map) {
@@ -30,13 +36,22 @@ class Clinic {
       specialty:
           map['specialiy'] as String? ??
           map['specialty'] as String?, // Handle typo in DB
-      rating: map['rating'] != null ? (map['rating'] as num).toDouble() : null,
+      rating: map['rating'] != null
+          ? (map['rating'] as num).toDouble()
+          : map['avg_rating'] != null
+          ? (map['avg_rating'] as num).toDouble()
+          : null,
       imageUrl: map['image_url'] as String?,
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'])
           : null,
       examinationPrice: map['examination_price'] != null
           ? (map['examination_price'] as num).toDouble()
+          : null,
+      city: map['city'] as String?,
+      district: map['district'] as String?,
+      reviewsCount: map['reviews_count'] != null
+          ? (map['reviews_count'] as num).toInt()
           : null,
     );
   }
@@ -52,12 +67,15 @@ class Clinic {
       'image_url': imageUrl,
       'created_at': createdAt?.toIso8601String(),
       'examination_price': examinationPrice,
+      'city': city,
+      'district': district,
+      'reviews_count': reviewsCount,
     };
   }
 
   @override
   String toString() {
-    return 'Clinic(clinicId: $clinicId, name: $name, location: $location, phone: $phone, specialty: $specialty, rating: $rating, imageUrl: $imageUrl, createdAt: $createdAt, examinationPrice: $examinationPrice)';
+    return 'Clinic(clinicId: $clinicId, name: $name, location: $location, phone: $phone, specialty: $specialty, rating: $rating, imageUrl: $imageUrl, createdAt: $createdAt, examinationPrice: $examinationPrice, city: $city, district: $district, reviewsCount: $reviewsCount)';
   }
 
   @override
@@ -79,6 +97,9 @@ class Clinic {
     String? imageUrl,
     DateTime? createdAt,
     double? examinationPrice,
+    String? city,
+    String? district,
+    int? reviewsCount,
   }) {
     return Clinic(
       clinicId: clinicId ?? this.clinicId,
@@ -90,6 +111,9 @@ class Clinic {
       imageUrl: imageUrl ?? this.imageUrl,
       createdAt: createdAt ?? this.createdAt,
       examinationPrice: examinationPrice ?? this.examinationPrice,
+      city: city ?? this.city,
+      district: district ?? this.district,
+      reviewsCount: reviewsCount ?? this.reviewsCount,
     );
   }
 }

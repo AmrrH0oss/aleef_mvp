@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/clinic.dart';
-import '../services/clinics_service.dart';
 import '../services/auth_service.dart';
+import '../data/edge/clinics_edge_service.dart';
 import '../widgets/clinic_card.dart';
 import '../widgets/custom_text_field.dart';
 
@@ -14,15 +14,52 @@ class ClinicListScreen extends StatefulWidget {
 
 class _ClinicListScreenState extends State<ClinicListScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _districtController = TextEditingController();
+  final TextEditingController _minPriceController = TextEditingController();
+  final TextEditingController _maxPriceController = TextEditingController();
+
   int _selectedIndex = 1; // center paw selected by default
   List<Clinic> _clinics = [];
   bool _isLoading = true;
   String? _error;
+  Map<String, dynamic>? _userProfile;
+  bool _showFilters = false;
 
   @override
   void initState() {
     super.initState();
-    _loadClinics();
+    _loadUserProfileAndClinics();
+  }
+
+  Future<void> _loadUserProfileAndClinics() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      // Load user profile to get location preferences
+      _userProfile = await AuthService.getUserProfile();
+
+      // Set default city/district from user profile
+      if (_userProfile != null) {
+        _cityController.text = _userProfile!['city'] ?? '';
+        _districtController.text = _userProfile!['district'] ?? '';
+      }
+
+      // Load clinics with user's location
+      await _loadClinics();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = _handleClinicError(e);
+          _isLoading = false;
+        });
+
+        _showErrorSnackBar(_error!);
+      }
+    }
   }
 
   Future<void> _loadClinics() async {
@@ -32,7 +69,34 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
         _error = null;
       });
 
-      final clinics = await ClinicsService.fetchClinics();
+      // Get filter parameters
+      final city = _cityController.text.trim().isEmpty
+          ? null
+          : _cityController.text.trim();
+      final district = _districtController.text.trim().isEmpty
+          ? null
+          : _districtController.text.trim();
+      final search = _searchController.text.trim().isEmpty
+          ? null
+          : _searchController.text.trim();
+      final minPrice = _minPriceController.text.trim().isEmpty
+          ? null
+          : double.tryParse(_minPriceController.text.trim());
+      final maxPrice = _maxPriceController.text.trim().isEmpty
+          ? null
+          : double.tryParse(_maxPriceController.text.trim());
+
+      // Fetch clinics using edge service
+      final clinicsData = await ClinicsEdgeService.fetchClinics(
+        city: city,
+        district: district,
+        search: search,
+        priceMin: minPrice,
+        priceMax: maxPrice,
+      );
+
+      // Convert to Clinic objects
+      final clinics = clinicsData.map((data) => Clinic.fromMap(data)).toList();
 
       if (mounted) {
         setState(() {
@@ -47,20 +111,23 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
           _isLoading = false;
         });
 
-        // Show error SnackBar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_error!),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            action: SnackBarAction(
-              label: 'Retry',
-              textColor: Colors.white,
-              onPressed: _loadClinics,
-            ),
-          ),
-        );
+        _showErrorSnackBar(_error!);
       }
     }
+  }
+
+  void _showErrorSnackBar(String error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        action: SnackBarAction(
+          label: 'Retry',
+          textColor: Colors.white,
+          onPressed: _loadClinics,
+        ),
+      ),
+    );
   }
 
   String _handleClinicError(dynamic error) {
@@ -127,7 +194,12 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
   }
 
   Widget _buildEmptyState() {
-    final hasSearchQuery = _searchController.text.trim().isNotEmpty;
+    final hasSearchQuery =
+        _searchController.text.trim().isNotEmpty ||
+        _cityController.text.trim().isNotEmpty ||
+        _districtController.text.trim().isNotEmpty ||
+        _minPriceController.text.trim().isNotEmpty ||
+        _maxPriceController.text.trim().isNotEmpty;
 
     return Center(
       child: Column(
@@ -161,10 +233,14 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
             ElevatedButton.icon(
               onPressed: () {
                 _searchController.clear();
-                setState(() {});
+                _cityController.clear();
+                _districtController.clear();
+                _minPriceController.clear();
+                _maxPriceController.clear();
+                _loadClinics();
               },
               icon: const Icon(Icons.clear),
-              label: const Text('Clear Search'),
+              label: const Text('Clear Filters'),
             ),
           ],
         ],
@@ -175,6 +251,10 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _cityController.dispose();
+    _districtController.dispose();
+    _minPriceController.dispose();
+    _maxPriceController.dispose();
     super.dispose();
   }
 
@@ -217,15 +297,15 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shrinkWrap: true,
-      itemCount: _filteredClinics.length,
+      itemCount: _clinics.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) => ClinicCard(
-        clinic: _filteredClinics.elementAt(index),
+        clinic: _clinics[index],
         onTap: () {
           Navigator.pushNamed(
             context,
             '/clinicProfile',
-            arguments: _filteredClinics.elementAt(index),
+            arguments: _clinics[index],
           );
         },
       ),
@@ -250,14 +330,14 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
       ),
-      itemCount: _filteredClinics.length,
+      itemCount: _clinics.length,
       itemBuilder: (context, index) => ClinicCard(
-        clinic: _filteredClinics.elementAt(index),
+        clinic: _clinics[index],
         onTap: () {
           Navigator.pushNamed(
             context,
             '/clinicProfile',
-            arguments: _filteredClinics.elementAt(index),
+            arguments: _clinics[index],
           );
         },
       ),
@@ -304,28 +384,37 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Row(
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: CustomTextField(
-                          controller: _searchController,
-                          hint: 'Search clinics...',
-                          prefixIcon: const Icon(Icons.search),
-                          onChanged: (_) => setState(() {}),
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomTextField(
+                              controller: _searchController,
+                              hint: 'Search clinics...',
+                              prefixIcon: const Icon(Icons.search),
+                              onChanged: (_) => _loadClinics(),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _IconChip(
+                            icon: Icons.swap_vert,
+                            onPressed: () {},
+                            tooltip: 'Sort',
+                          ),
+                          const SizedBox(width: 12),
+                          _IconChip(
+                            icon: _showFilters ? Icons.expand_less : Icons.tune,
+                            onPressed: () {
+                              setState(() {
+                                _showFilters = !_showFilters;
+                              });
+                            },
+                            tooltip: 'Filter',
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      _IconChip(
-                        icon: Icons.swap_vert,
-                        onPressed: () {},
-                        tooltip: 'Sort',
-                      ),
-                      const SizedBox(width: 12),
-                      _IconChip(
-                        icon: Icons.tune,
-                        onPressed: () {},
-                        tooltip: 'Filter',
-                      ),
+                      if (_showFilters) _buildFiltersUI(),
                     ],
                   ),
                 ),
@@ -340,7 +429,7 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
                           ? _buildLoadingState()
                           : _error != null
                           ? _buildErrorState()
-                          : _filteredClinics.isEmpty
+                          : _clinics.isEmpty
                           ? _buildEmptyState()
                           : RefreshIndicator(
                               onRefresh: _loadClinics,
@@ -363,14 +452,97 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
     );
   }
 
-  Iterable<Clinic> get _filteredClinics {
-    final q = _searchController.text.trim().toLowerCase();
-    if (q.isEmpty) return _clinics;
-    return _clinics.where(
-      (c) =>
-          c.name.toLowerCase().contains(q) ||
-          (c.specialty?.toLowerCase().contains(q) ?? false) ||
-          c.location.toLowerCase().contains(q),
+  Widget _buildFiltersUI() {
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Filters',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+
+          // Location Filters
+          Row(
+            children: [
+              Expanded(
+                child: CustomTextField(
+                  controller: _cityController,
+                  hint: 'City',
+                  prefixIcon: const Icon(Icons.location_city),
+                  onChanged: (_) => _loadClinics(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: CustomTextField(
+                  controller: _districtController,
+                  hint: 'District',
+                  prefixIcon: const Icon(Icons.location_on),
+                  onChanged: (_) => _loadClinics(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Price Range Filters
+          Row(
+            children: [
+              Expanded(
+                child: CustomTextField(
+                  controller: _minPriceController,
+                  hint: 'Min Price',
+                  prefixIcon: const Icon(Icons.attach_money),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => _loadClinics(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: CustomTextField(
+                  controller: _maxPriceController,
+                  hint: 'Max Price',
+                  prefixIcon: const Icon(Icons.money_off),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => _loadClinics(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Clear Filters Button
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    _cityController.clear();
+                    _districtController.clear();
+                    _minPriceController.clear();
+                    _maxPriceController.clear();
+                    _searchController.clear();
+                    _loadClinics();
+                  },
+                  icon: const Icon(Icons.clear_all),
+                  label: const Text('Clear All Filters'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -398,11 +570,7 @@ class _IconChip extends StatelessWidget {
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(12),
-          child: const SizedBox(
-            width: 48,
-            height: 48,
-            child: Icon(Icons.swap_vert),
-          ),
+          child: SizedBox(width: 48, height: 48, child: Icon(icon)),
         ),
       ),
     );

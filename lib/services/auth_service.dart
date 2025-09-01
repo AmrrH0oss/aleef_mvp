@@ -154,6 +154,24 @@ class AuthService {
   // Get user ID
   static String? get userId => currentUser?.id;
 
+  // Get current user's profile from PetOwners table
+  static Future<Map<String, dynamic>?> getUserProfile() async {
+    try {
+      if (currentUser == null) return null;
+
+      final response = await _supabase
+          .from('PetOwners')
+          .select('*')
+          .eq('user_id', currentUser!.id)
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      print('Error fetching user profile: $e');
+      return null;
+    }
+  }
+
   // Helper method to handle authentication errors
   static String _handleAuthError(dynamic error) {
     if (error is AuthException) {

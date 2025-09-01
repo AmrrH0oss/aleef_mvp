@@ -221,7 +221,7 @@ class ClinicCard extends StatelessWidget {
         if (clinic.rating != null)
           _buildInfoPill(
             Icons.star,
-            "${clinic.rating!.toStringAsFixed(1)}",
+            clinic.rating!.toStringAsFixed(1),
             const Color(0xFFFFC107),
           ),
         if (distance > 0)
