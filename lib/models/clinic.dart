@@ -11,6 +11,12 @@ class Clinic {
   final String? city;
   final String? district;
   final int? reviewsCount;
+  final int?
+  locationPriority; // For location-based sorting (3=same district, 2=same city, 1=other)
+  final String? distanceInfo; // Human-readable distance information
+  final int?
+  rank; // Location rank from Edge Function (2=same district, 1=same city, 0=other)
+  final String? profileImage; // Profile image URL
 
   const Clinic({
     required this.clinicId,
@@ -25,11 +31,16 @@ class Clinic {
     this.city,
     this.district,
     this.reviewsCount,
+    this.locationPriority,
+    this.distanceInfo,
+    this.rank,
+    this.profileImage,
   });
 
   factory Clinic.fromMap(Map<String, dynamic> map) {
     return Clinic(
-      clinicId: (map['clinic_id'] ?? map['id'] ?? '').toString(),
+      clinicId: (map['clinic_id'] ?? map['id'] ?? '')
+          .toString(), // Handle UUID clinic_id from actual DB
       name: map['name'] as String? ?? '',
       location: map['location'] as String? ?? '',
       phone: map['phone']?.toString(),
@@ -53,12 +64,18 @@ class Clinic {
       reviewsCount: map['reviews_count'] != null
           ? (map['reviews_count'] as num).toInt()
           : null,
+      locationPriority: map['location_priority'] != null
+          ? (map['location_priority'] as num).toInt()
+          : null,
+      distanceInfo: map['distance_info'] as String?,
+      rank: map['_rank'] != null ? (map['_rank'] as num).toInt() : null,
+      profileImage: map['profile_image'] as String?,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'clinic_id': int.tryParse(clinicId) ?? clinicId,
+      'clinic_id': clinicId, // Keep as string since it's UUID in actual DB
       'name': name,
       'location': location,
       'phone': phone,
@@ -70,12 +87,16 @@ class Clinic {
       'city': city,
       'district': district,
       'reviews_count': reviewsCount,
+      'location_priority': locationPriority,
+      'distance_info': distanceInfo,
+      '_rank': rank,
+      'profile_image': profileImage,
     };
   }
 
   @override
   String toString() {
-    return 'Clinic(clinicId: $clinicId, name: $name, location: $location, phone: $phone, specialty: $specialty, rating: $rating, imageUrl: $imageUrl, createdAt: $createdAt, examinationPrice: $examinationPrice, city: $city, district: $district, reviewsCount: $reviewsCount)';
+    return 'Clinic(clinicId: $clinicId, name: $name, location: $location, phone: $phone, specialty: $specialty, rating: $rating, imageUrl: $imageUrl, createdAt: $createdAt, examinationPrice: $examinationPrice, city: $city, district: $district, reviewsCount: $reviewsCount, locationPriority: $locationPriority, distanceInfo: $distanceInfo)';
   }
 
   @override
@@ -100,6 +121,10 @@ class Clinic {
     String? city,
     String? district,
     int? reviewsCount,
+    int? locationPriority,
+    String? distanceInfo,
+    int? rank,
+    String? profileImage,
   }) {
     return Clinic(
       clinicId: clinicId ?? this.clinicId,
@@ -114,6 +139,10 @@ class Clinic {
       city: city ?? this.city,
       district: district ?? this.district,
       reviewsCount: reviewsCount ?? this.reviewsCount,
+      locationPriority: locationPriority ?? this.locationPriority,
+      distanceInfo: distanceInfo ?? this.distanceInfo,
+      rank: rank ?? this.rank,
+      profileImage: profileImage ?? this.profileImage,
     );
   }
 }

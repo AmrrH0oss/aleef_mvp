@@ -1,299 +1,274 @@
-# Flutter Web App Deployment to Vercel Guide
+# 🚀 Deployment Guide - User Location-Based Clinic Sorting
 
-This guide will walk you through deploying your Flutter web app to Vercel with automatic deployments on git push.
+## Overview
 
-## Prerequisites
+This guide walks you through deploying the complete user-location-based clinic sorting system, including the Edge Function and testing the Flutter implementation.
 
-- ✅ Flutter project ready
-- ✅ GitHub account
-- ✅ Vercel account (free tier available)
-- ✅ Git repository set up
+## 📋 Prerequisites
 
-## Step 1: Prepare Your Project for Deployment
+Before deploying, ensure you have:
 
-### 1.1 Update Supabase Configuration (Optional)
+1. **Supabase CLI installed**
 
-If you want to use environment variables instead of hardcoded values, update `lib/core/supabase_client.dart`:
-
-```dart
-class SupabaseConfig {
-  // Use environment variables in production, fallback to hardcoded values for development
-  static const String supabaseUrl = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: 'https://xdntvwflpsrcwgtncndh.supabase.co',
-  );
-  static const String supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkbnR2d2ZscHNyY3dndG5jbmRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwOTIxNDYsImV4cCI6MjA3MDY2ODE0Nn0.Lp9TJAKuhdpmxmvdDbd0GqF-k0pZRAipMm_GfPa8ieQ',
-  );
-
-  static Future<void> initialize() async {
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-    );
-  }
-
-  static SupabaseClient get client => Supabase.instance.client;
-}
-```
-
-### 1.2 Build the Project for Web
-
-Run the following command in your terminal:
-
-```bash
-flutter build web --release
-```
-
-**Expected Output:**
-
-- Build files will be generated in `build/web/` directory
-- This includes `index.html`, `main.dart.js`, and other assets
-
-### 1.3 Verify Build Success
-
-Check that the `build/web` directory contains:
-
-- `index.html`
-- `main.dart.js`
-- `flutter.js`
-- `assets/` folder
-- Other Flutter web assets
-
-## Step 2: Set Up Git Repository
-
-### 2.1 Initialize Git (if not already done)
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: Flutter web app ready for deployment"
-```
-
-### 2.2 Create GitHub Repository
-
-1. Go to [GitHub](https://github.com)
-2. Click "+" → "New repository"
-3. Repository name: `aleef_mvp`
-4. Set as Public or Private (your choice)
-5. Do NOT initialize with README (since you already have files)
-6. Click "Create repository"
-
-### 2.3 Connect Local Repository to GitHub
-
-```bash
-git remote add origin https://github.com/YOUR_USERNAME/aleef_mvp.git
-git branch -M main
-git push -u origin main
-```
-
-**Replace `YOUR_USERNAME` with your actual GitHub username.**
-
-## Step 3: Deploy to Vercel
-
-### 3.1 Sign Up/Login to Vercel
-
-1. Go to [Vercel](https://vercel.com)
-2. Sign up or login (recommend using GitHub for easier integration)
-
-### 3.2 Import Your GitHub Repository
-
-1. Click "New Project" on Vercel dashboard
-2. Click "Import Git Repository"
-3. Search for and select `aleef_mvp`
-4. Click "Import"
-
-### 3.3 Configure Project Settings
-
-**Framework Preset:**
-
-- Select "Other" from the dropdown
-
-**Build and Output Settings:**
-
-- Build Command: `flutter build web --release`
-- Output Directory: `build/web`
-- Install Command: Leave empty (Vercel will auto-detect)
-
-**Root Directory:**
-
-- Leave as default (root)
-
-### 3.4 Set Environment Variables
-
-In the project configuration screen, add these environment variables:
-
-```
-SUPABASE_URL = https://xdntvwflpsrcwgtncndh.supabase.co
-SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkbnR2d2ZscHNyY3dndG5jbmRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwOTIxNDYsImV4cCI6MjA3MDY2ODE0Nn0.Lp9TJAKuhdpmxmvdDbd0GqF-k0pZRAipMm_GfPa8ieQ
-```
-
-**To add environment variables:**
-
-1. Scroll down to "Environment Variables" section
-2. Click "Add" for each variable
-3. Enter Name and Value
-4. Set environment to "Production" (or all environments)
-
-### 3.5 Deploy
-
-1. Click "Deploy" button
-2. Vercel will start building your project
-3. Wait for deployment to complete (usually 2-5 minutes)
-
-## Step 4: Verify Deployment
-
-### 4.1 Check Deployment Status
-
-- Monitor the build logs in Vercel dashboard
-- Look for any errors in the build process
-
-### 4.2 Test Your Live App
-
-1. Once deployed, click on the provided URL
-2. Test all functionality:
-   - Login/Signup
-   - Clinic list loading
-   - Navigation between screens
-   - Responsive design on different screen sizes
-
-### 4.3 Custom Domain (Optional)
-
-1. Go to Project Settings → Domains
-2. Add your custom domain
-3. Follow DNS configuration instructions
-
-## Step 5: Set Up Automatic Deployments
-
-### 5.1 Automatic Deployment Configuration
-
-Vercel automatically sets up continuous deployment when you import from GitHub:
-
-- ✅ **Main Branch**: Deploys to production on push to `main`
-- ✅ **Feature Branches**: Creates preview deployments
-- ✅ **Pull Requests**: Creates preview deployments
-
-### 5.2 Test Automatic Deployment
-
-1. Make a small change to your Flutter app
-2. Commit and push to GitHub:
    ```bash
-   git add .
-   git commit -m "Test deployment update"
-   git push origin main
+   npm install -g supabase
    ```
-3. Check Vercel dashboard for automatic build trigger
-4. Verify changes are live after deployment completes
 
-## Step 6: Troubleshooting Common Issues
+2. **Supabase project initialized**
 
-### 6.1 Build Failures
+   ```bash
+   supabase init
+   supabase login
+   supabase link --project-ref YOUR_PROJECT_REF
+   ```
 
-**Issue**: Flutter build fails on Vercel
-**Solution**:
+3. **Required database tables**:
+   - `PetOwners` table with `user_id`, `city`, `district` columns
+   - `clinics` table with location and rating data
 
-- Ensure `flutter build web --release` works locally
-- Check Vercel build logs for specific errors
-- Verify all dependencies are properly listed in `pubspec.yaml`
+## 🛠️ Step 1: Deploy the Edge Function
 
-### 6.2 Routing Issues
+### 1.1 Verify Edge Function Code
 
-**Issue**: Direct URL access returns 404
-**Solution**: Add `vercel.json` file to project root:
+The Edge Function is located at:
 
-```json
-{
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
-}
+```
+test_screen/supabase/functions/clinics-sorted-by-location/index.ts
 ```
 
-### 6.3 Supabase Connection Issues
+### 1.2 Deploy to Supabase
 
-**Issue**: App can't connect to Supabase
-**Solution**:
-
-- Verify environment variables are set correctly
-- Check browser console for CORS errors
-- Ensure Supabase project allows your Vercel domain
-
-### 6.4 Large Build Size
-
-**Issue**: Build takes too long or fails due to size
-**Solution**:
-
-- Use `flutter build web --release --tree-shake-icons`
-- Remove unused dependencies
-- Optimize images and assets
-
-## Step 7: Production Checklist
-
-Before going live, ensure:
-
-- [ ] All environment variables are set
-- [ ] HTTPS is enabled (Vercel provides this automatically)
-- [ ] Domain is configured (if using custom domain)
-- [ ] Error pages are handled gracefully
-- [ ] Performance is acceptable on mobile devices
-- [ ] All user flows are tested in production
-- [ ] Analytics/monitoring is set up (optional)
-
-## Step 8: Monitoring and Maintenance
-
-### 8.1 Monitor Deployments
-
-- Check Vercel dashboard regularly
-- Set up notification preferences in Vercel settings
-
-### 8.2 Update Dependencies
-
-- Keep Flutter and dependencies up to date
-- Test updates in development before pushing
-
-### 8.3 Performance Monitoring
-
-- Use Vercel Analytics (available in dashboard)
-- Monitor Core Web Vitals
-- Check mobile performance regularly
-
-## Quick Commands Reference
+From your project root directory, run:
 
 ```bash
-# Build for web
-flutter build web --release
-
-# Deploy changes
-git add .
-git commit -m "Your commit message"
-git push origin main
-
-# Check build locally
-flutter run -d chrome --release
+cd test_screen
+supabase functions deploy clinics-sorted-by-location
 ```
 
-## Support Links
+### 1.3 Verify Deployment
 
-- [Vercel Documentation](https://vercel.com/docs)
-- [Flutter Web Deployment](https://docs.flutter.dev/deployment/web)
-- [Supabase Flutter Guide](https://supabase.com/docs/reference/dart/introduction)
+Check the Supabase Dashboard:
+
+1. Go to **Edge Functions** section
+2. Confirm `clinics-sorted-by-location` is listed and active
+3. Note the function URL: `https://YOUR_PROJECT.supabase.co/functions/v1/clinics-sorted-by-location`
+
+## 🧪 Step 2: Test the Implementation
+
+### 2.1 Run the Flutter App
+
+```bash
+cd test_screen
+flutter run -d chrome
+```
+
+### 2.2 Test User Authentication
+
+1. **Create Test User** (if needed):
+
+   - Navigate to "Create Account"
+   - Use test credentials with location data:
+     - Email: `test@aleef.com`
+     - Password: `TestPassword123!`
+     - City: `Cairo`
+     - District: `Maadi`
+
+2. **Login with Test User**:
+   - Use the login screen
+   - Enter your test credentials
+
+### 2.3 Test Clinic Sorting
+
+1. **Navigate to Simple Clinics Page**:
+
+   - From login screen, tap "🏥 Simple Clinics Page"
+   - Or navigate to `/clinics-simple` route
+
+2. **Verify Automatic Sorting**:
+
+   - Clinics should load automatically
+   - Same district clinics appear first (green badge)
+   - Same city clinics appear second (blue badge)
+   - Other clinics appear last (gray badge)
+
+3. **Check Console Logs**:
+   - Open browser developer tools
+   - Look for debug messages:
+     ```
+     DEBUG: Fetching clinics with user location sorting
+     DEBUG: User location: {city: "Cairo", district: "Maadi"}
+     DEBUG: Sorted by location: true
+     ```
+
+## 🎯 Step 3: Verify Features
+
+### 3.1 ListTile Display Format
+
+Each clinic should display:
+
+- **Title**: Clinic name
+- **Subtitle**: District, City
+- **Location Badge**: Color-coded priority indicator
+- **Trailing**: Price (green) and rating (stars)
+
+### 3.2 Automatic Sorting Logic
+
+Verify the sorting order:
+
+1. **Same District** (Priority 3) - Green badge
+2. **Same City** (Priority 2) - Blue badge
+3. **Other Locations** (Priority 1) - Gray badge
+4. **Alphabetical** within each priority group
+
+### 3.3 Error Handling
+
+Test error scenarios:
+
+- **No Active Session**: Should show "Please log in again" error
+- **Network Error**: Should show retry button
+- **Empty Results**: Should show "No clinics found" message
+
+## 🔧 Step 4: Database Setup (if needed)
+
+### 4.1 Create PetOwners Table
+
+```sql
+CREATE TABLE IF NOT EXISTS "PetOwners" (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id),
+  full_name TEXT NOT NULL,
+  phone TEXT,
+  city TEXT,
+  district TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 4.2 Create/Update Clinics Table
+
+```sql
+CREATE TABLE IF NOT EXISTS "clinics" (
+  clinic_id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  city TEXT,
+  district TEXT,
+  examination_price DECIMAL,
+  avg_rating DECIMAL,
+  reviews_count INTEGER DEFAULT 0,
+  location TEXT,
+  phone TEXT,
+  specialty TEXT,
+  image_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 4.3 Insert Sample Data
+
+```sql
+-- Sample user in PetOwners
+INSERT INTO "PetOwners" (user_id, full_name, city, district)
+VALUES ('YOUR_TEST_USER_ID', 'Test User', 'Cairo', 'Maadi');
+
+-- Sample clinics with different locations
+INSERT INTO clinics (name, city, district, examination_price, avg_rating, reviews_count)
+VALUES
+  ('Maadi Pet Clinic', 'Cairo', 'Maadi', 200, 4.5, 25),
+  ('Zamalek Vet Center', 'Cairo', 'Zamalek', 250, 4.2, 18),
+  ('Alex Animal Hospital', 'Alexandria', 'Downtown', 180, 4.8, 42),
+  ('Giza Pet Care', 'Giza', 'Dokki', 220, 4.1, 15);
+```
+
+## 📱 Step 5: Mobile Testing
+
+### 5.1 Test on Mobile Device
+
+```bash
+flutter run -d <device-id>
+```
+
+### 5.2 Verify Mobile UI
+
+- ListTile should be responsive
+- Touch interactions work properly
+- Loading states display correctly
+- Error messages are readable
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Edge Function Not Found (404)**
+
+   - Verify deployment: `supabase functions list`
+   - Check function name matches: `clinics-sorted-by-location`
+   - Ensure project is linked correctly
+
+2. **Authentication Errors (401)**
+
+   - Verify user is logged in
+   - Check JWT token is being sent
+   - Confirm session is active
+
+3. **Database Errors (500)**
+
+   - Check table names match exactly: `PetOwners`, `clinics`
+   - Verify column names are correct
+   - Check user has location data
+
+4. **No Sorting Applied**
+   - Confirm user has `city`/`district` in PetOwners table
+   - Check Edge Function logs in Supabase Dashboard
+   - Verify clinic data has location fields
+
+### Debug Steps
+
+1. **Check Edge Function Logs**:
+
+   - Go to Supabase Dashboard → Edge Functions
+   - Click on `clinics-sorted-by-location`
+   - View logs and invocations
+
+2. **Verify Database Data**:
+
+   - Check PetOwners table has user location
+   - Confirm clinics table has city/district data
+   - Test queries manually in SQL Editor
+
+3. **Flutter Debug Console**:
+   - Look for DEBUG messages in browser console
+   - Check network requests in DevTools
+   - Verify API responses
+
+## ✅ Success Criteria
+
+The implementation is working correctly when:
+
+- ✅ User can login successfully
+- ✅ Clinics page loads without errors
+- ✅ Clinics are sorted by user location automatically
+- ✅ Location badges show correct colors
+- ✅ Price and rating display properly
+- ✅ Refresh functionality works
+- ✅ Error states handle gracefully
+
+## 🎉 Next Steps
+
+After successful deployment:
+
+1. **Performance Testing**: Test with larger datasets
+2. **User Experience**: Gather feedback on sorting relevance
+3. **Additional Features**: Consider distance calculations, favorites
+4. **Monitoring**: Set up alerts for Edge Function errors
 
 ---
 
-## Summary
+## 📞 Support
 
-After following this guide, you'll have:
+If you encounter issues:
 
-- ✅ Flutter web app deployed to Vercel
-- ✅ Automatic deployments on git push
-- ✅ Environment variables configured
-- ✅ Custom domain ready (optional)
-- ✅ Production monitoring in place
+1. Check the troubleshooting section above
+2. Review Supabase Edge Function logs
+3. Verify database table structure and data
+4. Test with different user accounts and locations
 
-Your app will be live at: `https://aleef-mvp.vercel.app` (or your custom domain)
-
-Happy deploying! 🚀
+The system should provide automatic, seamless clinic sorting based on user location without any manual interaction required!

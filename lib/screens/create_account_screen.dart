@@ -169,7 +169,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Call Supabase auth directly
+      // Call Supabase auth with profile creation
       final response = await AuthService.signUpWithProfile(
         email: email,
         password: password,
@@ -177,6 +177,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         phone: phone,
         city: _cityController.text.trim(),
         district: _districtController.text.trim(),
+        profileImage:
+            null, // Optional: can be added later for profile picture upload
       );
 
       if (!mounted) return;

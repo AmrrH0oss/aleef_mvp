@@ -71,39 +71,65 @@ class AuthService {
     required String phone,
     required String city,
     required String district,
+    String? profileImage,
   }) async {
     try {
-      // Step 1: Sign up the user with Supabase auth
+      print('DEBUG: Starting signup process for email: $email');
+
+      // Step 1: Sign up the user with Supabase auth with metadata for trigger
+      // The database trigger will automatically create PetOwners record
+      print('DEBUG: Calling supabase.auth.signUp with user metadata...');
       final AuthResponse response = await _supabase.auth.signUp(
         email: email,
         password: password,
+        data: {
+          'full_name': fullName,
+          'phone': phone,
+          'city': city,
+          'district': district,
+          'profile_image': profileImage,
+        },
       );
+      print('DEBUG: Auth signup completed. Response: ${response.user?.id}');
 
       if (response.user == null) {
+        print('DEBUG: Signup failed - no user returned');
         return 'Failed to create user account';
       }
 
       // Step 2: Get the user ID from the response
       final userId = response.user!.id;
+      print('DEBUG: User created successfully with ID: $userId');
 
-      // Step 3: Insert profile into "PetOwners" table
+      // Step 3: Verify PetOwners record was created by trigger
+      // The database trigger should have automatically created the record
       try {
-        await _supabase.from('PetOwners').insert({
-          'user_id': userId,
-          'full_name': fullName,
-          'phone': phone,
-          'city': city,
-          'district': district,
-        });
-      } catch (profileError) {
-        // If profile creation fails, we should clean up the auth user
-        // But since Supabase doesn't allow deleting users from client,
-        // we'll just return the error
-        return 'Account created but profile setup failed: $profileError';
-      }
+        print('DEBUG: Verifying PetOwners record was created by trigger...');
 
-      return null; // Success
+        // Wait a moment for the trigger to complete
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        // Check if PetOwners record exists
+        final petOwnerRecord = await _supabase
+            .from('PetOwners')
+            .select('pet_owner_id, user_id, Full_name')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (petOwnerRecord != null) {
+          print('DEBUG: PetOwners record found: $petOwnerRecord');
+          print('DEBUG: Signup completed successfully for user: $email');
+          return null; // Success
+        } else {
+          print('DEBUG: No PetOwners record found - trigger may have failed');
+          return 'Account created but profile setup failed: Database trigger error. Please contact support.';
+        }
+      } catch (verificationError) {
+        print('DEBUG: Error verifying PetOwners record: $verificationError');
+        return 'Account created but profile verification failed: ${verificationError.toString()}';
+      }
     } catch (e) {
+      print('DEBUG: Signup process failed: $e');
       return _handleAuthError(e);
     }
   }
@@ -169,6 +195,94 @@ class AuthService {
     } catch (e) {
       print('Error fetching user profile: $e');
       return null;
+    }
+  }
+
+  // Test method: Sign up with auth only (no PetOwners insert)
+  static Future<String?> signUpAuthOnly({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      print('DEBUG: Testing auth-only signup for email: $email');
+
+      final AuthResponse response = await _supabase.auth.signUp(
+        email: email,
+        password: password,
+      );
+
+      print('DEBUG: Auth-only signup result: ${response.user?.id}');
+
+      if (response.user == null) {
+        return 'Failed to create auth user';
+      }
+
+      return null; // Success
+    } catch (e) {
+      print('DEBUG: Auth-only signup failed: $e');
+      return _handleAuthError(e);
+    }
+  }
+
+  // Test method: Sign up without trigger (manual PetOwners insert)
+  static Future<String?> signUpWithoutTrigger({
+    required String email,
+    required String password,
+    required String fullName,
+    required String phone,
+    required String city,
+    required String district,
+    String? profileImage,
+  }) async {
+    try {
+      print('DEBUG: Testing signup WITHOUT trigger for email: $email');
+
+      // Step 1: Sign up with NO metadata to avoid trigger
+      final AuthResponse response = await _supabase.auth.signUp(
+        email: email,
+        password: password,
+        // NO data parameter - this should bypass trigger issues
+      );
+
+      print('DEBUG: Auth signup result: ${response.user?.id}');
+
+      if (response.user == null) {
+        return 'Failed to create auth user';
+      }
+
+      final userId = response.user!.id;
+
+      // Step 2: Manually insert PetOwners record
+      try {
+        print('DEBUG: Manually inserting PetOwners record...');
+
+        final insertData = {
+          'user_id': userId,
+          'Full_name': fullName,
+          'phone': phone,
+          'city': city,
+          'district': district,
+        };
+
+        if (profileImage != null && profileImage.isNotEmpty) {
+          insertData['profile_image'] = profileImage;
+        }
+
+        final insertResponse = await _supabase
+            .from('PetOwners')
+            .insert(insertData)
+            .select('pet_owner_id, user_id')
+            .single();
+
+        print('DEBUG: Manual PetOwners insert successful: $insertResponse');
+        return null; // Success
+      } catch (insertError) {
+        print('DEBUG: Manual PetOwners insert failed: $insertError');
+        return 'Account created but manual profile setup failed: ${insertError.toString()}';
+      }
+    } catch (e) {
+      print('DEBUG: Signup without trigger failed: $e');
+      return _handleAuthError(e);
     }
   }
 

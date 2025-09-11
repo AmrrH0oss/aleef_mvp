@@ -196,40 +196,41 @@ class ClinicCard extends StatelessWidget {
     );
   }
 
-  Widget _buildChevronIcon(BuildContext context, double size, double iconSize) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(size * 0.3),
-      ),
-      child: Icon(
-        Icons.chevron_right,
-        size: iconSize,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-    );
-  }
+  // Removed unused _buildChevronIcon method
 
-  // NEW: Updated info pills with horizontal layout for rating, distance, and price
+  // Updated info pills with rating, distance info, and price
   Widget _buildInfoPills(BuildContext context) {
     return Wrap(
       spacing: 6,
       runSpacing: 2,
       children: [
+        // Rating with review count
         if (clinic.rating != null)
           _buildInfoPill(
             Icons.star,
-            clinic.rating!.toStringAsFixed(1),
+            clinic.reviewsCount != null
+                ? '${clinic.rating!.toStringAsFixed(1)} (${clinic.reviewsCount})'
+                : clinic.rating!.toStringAsFixed(1),
             const Color(0xFFFFC107),
           ),
-        if (distance > 0)
+        // Distance info from Edge Function (same district/city/other)
+        if (clinic.distanceInfo != null && clinic.distanceInfo!.isNotEmpty)
           _buildInfoPill(
-            Icons.location_on,
-            "${distance.toStringAsFixed(1)}km",
-            const Color(0xFFE91E63),
+            clinic.locationPriority == 3
+                ? Icons
+                      .location_on // Same district
+                : clinic.locationPriority == 2
+                ? Icons
+                      .location_city // Same city
+                : Icons.location_off, // Other
+            clinic.distanceInfo!,
+            clinic.locationPriority == 3
+                ? const Color(0xFF4CAF50) // Green for same district
+                : clinic.locationPriority == 2
+                ? const Color(0xFF2196F3) // Blue for same city
+                : const Color(0xFF9E9E9E), // Gray for other
           ),
+        // Examination price
         if (clinic.examinationPrice != null)
           _buildInfoPill(
             Icons.attach_money,

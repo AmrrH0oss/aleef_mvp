@@ -57,7 +57,12 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
           _isLoading = false;
         });
 
-        _showErrorSnackBar(_error!);
+        // If session expired, redirect to login
+        if (e.toString().contains('No active session')) {
+          _redirectToLogin();
+        } else {
+          _showErrorSnackBar(_error!);
+        }
       }
     }
   }
@@ -70,12 +75,7 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
       });
 
       // Get filter parameters
-      final city = _cityController.text.trim().isEmpty
-          ? null
-          : _cityController.text.trim();
-      final district = _districtController.text.trim().isEmpty
-          ? null
-          : _districtController.text.trim();
+      // Note: city and district filters removed - sorting now handled by Edge Function
       final search = _searchController.text.trim().isEmpty
           ? null
           : _searchController.text.trim();
@@ -86,17 +86,19 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
           ? null
           : double.tryParse(_maxPriceController.text.trim());
 
-      // Fetch clinics using edge service
-      final clinicsData = await ClinicsEdgeService.fetchClinics(
-        city: city,
-        district: district,
-        search: search,
-        priceMin: minPrice,
-        priceMax: maxPrice,
-      );
+      // Fetch clinics using new location-sorted edge service
+      // This automatically sorts by user location on the server side
+      final clinicsData =
+          await ClinicsEdgeService.fetchClinicsSortedByUserLocation(
+            search: search,
+            priceMin: minPrice,
+            priceMax: maxPrice,
+          );
 
       // Convert to Clinic objects
       final clinics = clinicsData.map((data) => Clinic.fromMap(data)).toList();
+
+      // No need for client-side sorting - already sorted by Edge Function
 
       if (mounted) {
         setState(() {
@@ -111,7 +113,12 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
           _isLoading = false;
         });
 
-        _showErrorSnackBar(_error!);
+        // If session expired, redirect to login
+        if (e.toString().contains('No active session')) {
+          _redirectToLogin();
+        } else {
+          _showErrorSnackBar(_error!);
+        }
       }
     }
   }
@@ -137,11 +144,41 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
       return 'Network error. Please check your connection.';
     }
 
+    if (error.toString().contains('No active session')) {
+      return 'Session expired. Please log in again.';
+    }
+
     if (error.toString().contains('Failed to fetch clinics')) {
       return 'Unable to load clinics. Please try again.';
     }
 
     return 'Something went wrong. Please try again.';
+  }
+
+  // Note: Client-side sorting removed - now handled by Edge Function server-side
+  // The fetchClinicsSortedByUserLocation() method automatically sorts clinics by:
+  // 1. Same district as user (highest priority)
+  // 2. Same city as user (medium priority)
+  // 3. Others (lowest priority)
+  // 4. Within each group, sorted alphabetically by name
+
+  /// Redirects user to login screen when session expires
+  void _redirectToLogin() {
+    // Show a message to the user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Session expired. Please log in again.'),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // Navigate to login screen after a short delay
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && context.mounted) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+    });
   }
 
   Widget _buildLoadingState() {

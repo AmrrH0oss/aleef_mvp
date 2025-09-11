@@ -3,29 +3,88 @@ import '../models/clinic.dart';
 
 class ClinicsService {
   static final SupabaseClient _supabase = Supabase.instance.client;
-  static const String _tableName = 'clinics';
+  static const String _tableName =
+      'Clinic'; // Updated to match actual Supabase table name
 
-  // Fetch all clinics ordered by name
+  /// Fetch clinics sorted by user location using Edge Function
+  ///
+  /// This is the main method that should be used throughout the app.
+  /// It automatically:
+  /// 1. Gets the current user's JWT from Supabase session
+  /// 2. Calls the 'clinics-sorted-by-location' Edge Function with JWT
+  /// 3. Returns clinics sorted by user's location (district > city > others)
+  /// 4. Includes average rating and review count
+  ///
+  /// Throws an Exception if:
+  /// - User is not logged in (no active session)
+  /// - Edge Function call fails
+  /// - Response parsing fails
   static Future<List<Clinic>> fetchClinics() async {
     try {
-      print('DEBUG: Fetching clinics from table: $_tableName');
-      final response = await _supabase
-          .from(_tableName)
-          .select()
-          .order('name', ascending: true);
+      // Check for active session and get access token
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        throw Exception('No active session. Please log in again.');
+      }
 
-      print('DEBUG: Raw response: $response');
-      print('DEBUG: Response type: ${response.runtimeType}');
+      final jwt = session.accessToken;
+      if (jwt == null || jwt.isEmpty) {
+        throw Exception('Invalid session token. Please log in again.');
+      }
 
-      final clinics = (response as List)
-          .map((map) => Clinic.fromMap(map))
-          .toList();
-      print('DEBUG: Parsed ${clinics.length} clinics');
+      print('DEBUG: Fetching clinics with user location sorting');
+      print('DEBUG: Session valid, user: ${_supabase.auth.currentUser?.email}');
 
-      return clinics;
+      // Call the updated clinics-list Edge Function with JWT authentication
+      final res = await _supabase.functions.invoke(
+        'clinics-list',
+        body: {}, // No filters - get all clinics sorted by location
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      // Check for successful response
+      if (res.data == null) {
+        throw Exception('No data received from clinics service');
+      }
+
+      print('DEBUG: Raw Edge Function response: ${res.data}');
+
+      // Parse the response data
+      final responseData = res.data as Map<String, dynamic>;
+
+      // Extract clinics array from response
+      if (responseData.containsKey('clinics')) {
+        final clinicsData = responseData['clinics'] as List;
+
+        // Convert to Clinic objects
+        final clinics = clinicsData
+            .map((data) => Clinic.fromMap(data as Map<String, dynamic>))
+            .toList();
+
+        print('DEBUG: Parsed ${clinics.length} clinics with location sorting');
+        print('DEBUG: User location: ${responseData['user_location']}');
+        print(
+          'DEBUG: Sorted by location: ${responseData['sorted_by_location']}',
+        );
+
+        return clinics;
+      } else {
+        throw Exception('No clinics data found in response');
+      }
     } catch (e) {
       print('DEBUG: Error fetching clinics: $e');
-      throw Exception('Failed to fetch clinics: $e');
+
+      // Handle different types of errors
+      if (e is FunctionException) {
+        throw Exception('Edge function error: ${e.details}');
+      } else if (e is Exception) {
+        rethrow;
+      } else {
+        throw Exception('Unexpected error fetching clinics: $e');
+      }
     }
   }
 
