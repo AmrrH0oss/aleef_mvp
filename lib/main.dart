@@ -7,10 +7,8 @@ import 'package:test_screen/screens/login_screen.dart';
 import 'package:test_screen/screens/splash_screen.dart';
 import 'package:test_screen/screens/clinic_profile_screen.dart';
 import 'package:test_screen/screens/book_appointment_screen.dart';
-import 'package:test_screen/screens/simple_login_test.dart';
-import 'package:test_screen/examples/authentication_test.dart';
-import 'package:test_screen/examples/signup_test.dart';
-import 'package:test_screen/examples/auth_only_test.dart';
+import 'package:test_screen/debug_clinics_test.dart';
+import 'package:test_screen/test_database_access.dart';
 import 'package:test_screen/theme/app_theme.dart';
 
 void main() async {
@@ -41,10 +39,8 @@ class MyApp extends StatelessWidget {
             const ClinicsPage(), // Simple clinics page with ListTile
         '/clinicProfile': (_) => const ClinicProfileScreen(),
         '/bookAppointment': (_) => const BookAppointmentScreen(),
-        '/auth-test': (_) => const AuthenticationTestScreen(),
-        '/login-test': (_) => const SimpleLoginTest(), // Quick login test
-        '/signup-test': (_) => const SignupTest(), // PetOwners creation test
-        '/auth-only-test': (_) => const AuthOnlyTestScreen(), // Auth-only test
+        '/debug-clinics': (_) => const DebugClinicsTest(), // Debug test screen
+        '/test-db': (_) => const TestDatabaseAccess(), // Database access test
       },
     );
   }

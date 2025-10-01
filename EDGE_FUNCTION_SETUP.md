@@ -1,6 +1,15 @@
-// Edge Function: clinics-list
-// Updated to sort clinics by logged-in user's location with proper JWT verification
+# Edge Function Setup Guide
 
+## Step 1: Create Edge Function in Supabase Dashboard
+
+1. **Go to your Supabase Dashboard**
+2. **Navigate to Edge Functions** (in the left sidebar)
+3. **Click "Create a new function"**
+4. **Name it**: `clinics-list`
+5. **Replace the default code** with the code below:
+
+```typescript
+// Edge Function: clinics-list
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -18,7 +27,7 @@ interface RequestBody {
 
 interface UserProfile {
   user_id: string;
-  full_name: string;
+  Full_name: string;
   phone?: string;
   city?: string;
   district?: string;
@@ -33,7 +42,7 @@ interface Clinic {
   profile_image?: string;
   avg_rating?: number;
   reviews_count?: number;
-  _rank: number; // Location-based ranking
+  _rank: number;
 }
 
 serve(async (req) => {
@@ -43,9 +52,12 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Edge function started");
+
     // Step 1: Read and verify Authorization header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.error("Missing or invalid Authorization header");
       return new Response(
         JSON.stringify({ error: "Missing or invalid Authorization header" }),
         {
@@ -56,11 +68,14 @@ serve(async (req) => {
     }
 
     const jwt = authHeader.substring(7); // Remove 'Bearer ' prefix
+    console.log("JWT token received, length:", jwt.length);
 
     // Initialize Supabase client (server-side)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    console.log("Supabase client initialized");
 
     // Step 2: Verify JWT using Supabase's getUser()
     const {
@@ -76,17 +91,16 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Authenticated user: ${user.id}`);
+    console.log("User authenticated:", user.id);
 
     // Step 3: Get user's record from PetOwners using user.id
     const { data: userProfile, error: profileError } = await supabase
       .from("PetOwners")
-      .select("user_id, full_name, phone, city, district")
+      .select("user_id, Full_name, phone, city, district")
       .eq("user_id", user.id)
       .single();
 
     if (profileError && profileError.code !== "PGRST116") {
-      // PGRST116 = no rows returned
       console.error("Error fetching user profile:", profileError);
       return new Response(
         JSON.stringify({ error: "Failed to fetch user profile" }),
@@ -98,6 +112,7 @@ serve(async (req) => {
     }
 
     const profile = userProfile as UserProfile | null;
+    console.log("User profile:", profile);
 
     // Step 4: Extract city and district
     const userCity = profile?.city?.toLowerCase() || "";
@@ -110,8 +125,9 @@ serve(async (req) => {
     // Parse request body for filters
     const requestBody: RequestBody =
       req.method === "POST" ? await req.json() : {};
+    console.log("Request body:", requestBody);
 
-    // Step 5: Query Clinic table with specified fields (matching your actual DB schema)
+    // Step 5: Query Clinic table with specified fields
     let clinicsQuery = supabase
       .from("Clinic")
       .select(
@@ -143,13 +159,18 @@ serve(async (req) => {
     if (clinicsError) {
       console.error("Error fetching clinics:", clinicsError);
       return new Response(
-        JSON.stringify({ error: "Failed to fetch clinics" }),
+        JSON.stringify({
+          error: "Failed to fetch clinics",
+          details: clinicsError,
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
+
+    console.log("Fetched clinics count:", clinics?.length || 0);
 
     // Step 6: For each clinic, compute _rank and get ratings
     const enrichedClinics: Clinic[] = [];
@@ -166,7 +187,7 @@ serve(async (req) => {
         rank = 1; // Same city
       }
 
-      // Get average rating and review count from Rating table (using actual column name 'stars')
+      // Get average rating and review count from Rating table
       const { data: ratings, error: ratingsError } = await supabase
         .from("Rating")
         .select("stars")
@@ -189,20 +210,17 @@ serve(async (req) => {
         district: clinic.district,
         examination_price: clinic.examination_price,
         profile_image: clinic.profile_image,
-        avg_rating: avgRating ? Math.round(avgRating * 10) / 10 : undefined, // Round to 1 decimal
+        avg_rating: avgRating ? Math.round(avgRating * 10) / 10 : undefined,
         reviews_count: reviewsCount,
         _rank: rank,
-        group_type: "clinic", // Default group type for all clinics
       });
     }
 
     // Step 7: Sort by _rank DESC, then by name ASC
     enrichedClinics.sort((a, b) => {
-      // First sort by rank (higher rank first)
       if (a._rank !== b._rank) {
         return b._rank - a._rank;
       }
-      // Then sort by name alphabetically
       return a.name.localeCompare(b.name);
     });
 
@@ -247,44 +265,70 @@ serve(async (req) => {
     );
   }
 });
+```
 
-/* 
-Deployment Instructions:
+6. **Click "Deploy function"**
 
-1. Deploy this Edge Function:
-   supabase functions deploy clinics-list
+## Step 2: Fix Row Level Security (RLS)
 
-2. Database requirements:
-   - PetOwners table: user_id, full_name, phone, city, district
-   - clinics table: clinic_id, name, city, district, examination_price, profile_image
-   - Rating table: clinic_id, rating
+The main issue might be RLS blocking access to your Clinic table.
 
-3. Environment variables needed:
-   - SUPABASE_URL: Your Supabase project URL
-   - SUPABASE_SERVICE_ROLE_KEY: Service role key for server-side operations
+### Option A: Disable RLS (Quick Fix)
 
-4. Usage from Flutter:
-   - Call with Authorization header: Bearer <jwt_token>
-   - Optional body: { "search": "...", "priceMin": 100, "priceMax": 500 }
-   - Returns sorted clinics with _rank field indicating location priority
+1. **Go to Database > Tables**
+2. **Find your "Clinic" table**
+3. **Click on the table name**
+4. **Go to "Settings" tab**
+5. **Turn OFF "Enable Row Level Security"**
 
-5. Response format:
+### Option B: Add RLS Policy (Recommended)
+
+1. **Go to Database > Tables**
+2. **Find your "Clinic" table**
+3. **Click on "RLS" tab**
+4. **Click "Add Policy"**
+5. **Policy name**: `Allow authenticated users to read clinics`
+6. **Policy type**: `SELECT`
+7. **Target roles**: `authenticated`
+8. **Policy definition**: `true` (allows all authenticated users)
+9. **Click "Save"**
+
+## Step 3: Test the Edge Function
+
+After creating the function, test it in the Supabase dashboard:
+
+1. **Go to Edge Functions**
+2. **Click on "clinics-list"**
+3. **Click "Invoke function"**
+4. **Add headers**:
+   ```json
    {
-     "clinics": [
-       {
-         "clinic_id": "123",
-         "name": "Clinic Name",
-         "city": "Cairo",
-         "district": "Maadi",
-         "examination_price": 200,
-         "profile_image": "url",
-         "avg_rating": 4.5,
-         "reviews_count": 25,
-         "_rank": 2
-       }
-     ],
-     "user_location": { "city": "Cairo", "district": "Maadi" },
-     "total_count": 10,
-     "sorted_by_location": true
+     "Authorization": "Bearer YOUR_JWT_TOKEN",
+     "Content-Type": "application/json"
    }
-*/
+   ```
+5. **Add body** (optional):
+   ```json
+   {}
+   ```
+6. **Click "Send request"**
+
+You should see a response with your clinics data.
+
+## Step 4: Update Flutter Code
+
+Once the Edge Function is working, update your Flutter code to use it:
+
+1. **Uncomment the Edge Function import** in `clinics_service.dart`
+2. **Replace the direct database call** with the Edge Function call
+3. **Test in your Flutter app**
+
+## Troubleshooting
+
+If you still get errors:
+
+1. **Check the Edge Function logs** in Supabase dashboard
+2. **Verify your JWT token** is valid
+3. **Check RLS policies** on Clinic and Rating tables
+4. **Ensure your user exists** in PetOwners table
+5. **Check database permissions**

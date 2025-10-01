@@ -93,77 +93,12 @@ class ClinicsEdgeService {
     double? priceMax,
     String? search,
   }) async {
-    try {
-      // Check for active session and get access token
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session?.accessToken == null) {
-        throw Exception('No active session. Please log in again.');
-      }
-
-      // Build the request body with only non-null parameters
-      final Map<String, dynamic> requestBody = {};
-
-      if (priceMin != null) {
-        requestBody['priceMin'] = priceMin;
-      }
-      if (priceMax != null) {
-        requestBody['priceMax'] = priceMax;
-      }
-      if (search != null && search.isNotEmpty) {
-        requestBody['search'] = search;
-      }
-
-      // Invoke the Supabase Edge Function with Authorization header
-      final res = await Supabase.instance.client.functions.invoke(
-        'clinics-list',
-        body: requestBody,
-        headers: {
-          'Authorization': 'Bearer ${session!.accessToken}',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      // Check for successful response
-      if (res.data == null) {
-        throw Exception('No data received from clinics service');
-      }
-
-      // Parse the response data
-      final responseData = res.data as Map<String, dynamic>;
-
-      // Extract clinics array from response
-      if (responseData.containsKey('clinics')) {
-        final clinicsData = responseData['clinics'];
-
-        // Ensure we have a valid list
-        if (clinicsData is List) {
-          return clinicsData
-              .map((clinic) => clinic as Map<String, dynamic>)
-              .toList();
-        } else {
-          throw Exception('Invalid clinics data format received');
-        }
-      } else {
-        // If no 'clinics' key, check if the response itself is the clinics array
-        if (res.data is List) {
-          final clinicsData = res.data as List;
-          return clinicsData
-              .map((clinic) => clinic as Map<String, dynamic>)
-              .toList();
-        } else {
-          throw Exception('No clinics data found in response');
-        }
-      }
-    } catch (e) {
-      // Handle different types of errors
-      if (e is FunctionException) {
-        throw Exception('Edge function error: ${e.details}');
-      } else if (e is Exception) {
-        rethrow;
-      } else {
-        throw Exception('Unexpected error fetching clinics: $e');
-      }
-    }
+    // Use the main fetchClinicsSortedByUserLocation method with enhanced logging
+    return await fetchClinicsSortedByUserLocation(
+      search: search,
+      priceMin: priceMin,
+      priceMax: priceMax,
+    );
   }
 
   /// Validates filter parameters before making the request
@@ -249,6 +184,11 @@ class ClinicsEdgeService {
         throw Exception('No active session. Please log in again.');
       }
 
+      // Get current user info for logging
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      print('🔍 [API REQUEST] User: ${currentUser?.email}');
+      print('🔍 [API REQUEST] User ID: ${currentUser?.id}');
+
       // Build the request body with optional parameters
       final Map<String, dynamic> requestBody = {};
 
@@ -262,43 +202,107 @@ class ClinicsEdgeService {
         requestBody['priceMax'] = priceMax;
       }
 
-      // Call the new Edge Function that handles JWT decoding and location-based sorting
+      // Log the complete request details
+      print('🚀 [API REQUEST] Method: POST');
+      print('🚀 [API REQUEST] Endpoint: clinics-list');
+      print('🚀 [API REQUEST] Headers: {');
+      print('    Authorization: Bearer ${session!.accessToken}');
+      print('    Content-Type: application/json');
+      print('}');
+      print('🚀 [API REQUEST] Body: $requestBody');
+      print('');
+      print('🔑 [FULL JWT TOKEN FOR SUPABASE TESTING]:');
+      print(session!.accessToken);
+      print('');
+
+      // Call the Edge Function (using clinics-list as the main endpoint)
       final res = await Supabase.instance.client.functions.invoke(
-        'clinics-sorted-by-location',
+        'clinics-list', // Using the main clinics-list endpoint
         body: requestBody,
         headers: {
-          'Authorization': 'Bearer ${session!.accessToken}',
+          'Authorization': 'Bearer ${session.accessToken}',
           'Content-Type': 'application/json',
         },
       );
 
+      // Log the raw response
+      print('📥 [API RESPONSE] Status: ${res.status}');
+      print('📥 [API RESPONSE] Raw Data: ${res.data}');
+
       // Check for successful response
       if (res.data == null) {
+        print('❌ [API ERROR] No data received from clinics service');
         throw Exception('No data received from clinics service');
       }
 
       // Parse the response data
       final responseData = res.data as Map<String, dynamic>;
+      print(
+        '📊 [API RESPONSE] Parsed Response Keys: ${responseData.keys.toList()}',
+      );
 
       // Extract clinics array from response
       if (responseData.containsKey('clinics')) {
         final clinicsData = responseData['clinics'];
+        print(
+          '📊 [API RESPONSE] Clinics count: ${clinicsData is List ? clinicsData.length : 'Invalid format'}',
+        );
+
+        // Log user location info if available
+        if (responseData.containsKey('user_location')) {
+          print('📍 [USER LOCATION] ${responseData['user_location']}');
+        }
 
         // Ensure we have a valid list
         if (clinicsData is List) {
-          return clinicsData
-              .map((clinic) => clinic as Map<String, dynamic>)
-              .toList();
+          // Log first clinic for debugging
+          if (clinicsData.isNotEmpty) {
+            print('📋 [SAMPLE CLINIC] ${clinicsData.first}');
+          }
+
+          final parsedClinics = clinicsData.map((clinic) {
+            try {
+              // Add group_type field if missing (default to 'clinic')
+              final clinicMap = Map<String, dynamic>.from(
+                clinic as Map<String, dynamic>,
+              );
+              if (!clinicMap.containsKey('group_type')) {
+                clinicMap['group_type'] = 'clinic'; // Default group type
+              }
+              return clinicMap;
+            } catch (e) {
+              print(
+                '⚠️ [PARSING WARNING] Error processing clinic: $clinic, Error: $e',
+              );
+              return clinic as Map<String, dynamic>;
+            }
+          }).toList();
+
+          print(
+            '✅ [API SUCCESS] Successfully parsed ${parsedClinics.length} clinics',
+          );
+          return parsedClinics;
         } else {
+          print(
+            '❌ [API ERROR] Invalid clinics data format: ${clinicsData.runtimeType}',
+          );
           throw Exception('Invalid clinics data format received');
         }
       } else {
+        print(
+          '❌ [API ERROR] No clinics key in response. Available keys: ${responseData.keys.toList()}',
+        );
         throw Exception('No clinics data found in response');
       }
     } catch (e) {
+      print('💥 [API ERROR] Exception caught: $e');
+      print('💥 [API ERROR] Exception type: ${e.runtimeType}');
+
       // Handle different types of errors
       if (e is FunctionException) {
-        throw Exception('Edge function error: ${e.details}');
+        print('💥 [FUNCTION ERROR] Details: ${e.details}');
+        print('💥 [FUNCTION ERROR] Reason: ${e.reasonPhrase}');
+        throw Exception('Edge function error: ${e.details ?? e.reasonPhrase}');
       } else if (e is Exception) {
         rethrow;
       } else {

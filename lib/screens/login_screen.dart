@@ -158,62 +158,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // Debug test button
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed('/auth-test'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                    child: const Text(
-                      '🧪 Authentication Test',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed('/clinics-simple'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.blue),
-                    child: const Text(
-                      '🏥 Simple Clinics Page',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed('/login-test'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.green),
-                    child: const Text(
-                      '🔑 Quick Login Test',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed('/signup-test'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.purple),
-                    child: const Text(
-                      '👥 Signup + PetOwners Test',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed('/auth-only-test'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.red),
-                    child: const Text(
-                      '🔒 Auth-Only Test',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

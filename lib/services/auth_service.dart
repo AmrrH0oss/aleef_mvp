@@ -101,28 +101,19 @@ class AuthService {
       final userId = response.user!.id;
       print('DEBUG: User created successfully with ID: $userId');
 
-      // Step 3: Verify PetOwners record was created by trigger
+      // Step 3: Verify PetOwners record was created by trigger with retry mechanism
       // The database trigger should have automatically created the record
       try {
         print('DEBUG: Verifying PetOwners record was created by trigger...');
 
-        // Wait a moment for the trigger to complete
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        // Check if PetOwners record exists
-        final petOwnerRecord = await _supabase
-            .from('PetOwners')
-            .select('pet_owner_id, user_id, Full_name')
-            .eq('user_id', userId)
-            .maybeSingle();
+        final petOwnerRecord = await _verifyPetOwnersRecord(userId);
 
         if (petOwnerRecord != null) {
-          print('DEBUG: PetOwners record found: $petOwnerRecord');
           print('DEBUG: Signup completed successfully for user: $email');
           return null; // Success
         } else {
-          print('DEBUG: No PetOwners record found - trigger may have failed');
-          return 'Account created but profile setup failed: Database trigger error. Please contact support.';
+          print('DEBUG: PetOwners record not found after 5 retry attempts');
+          return 'Account created but profile setup failed: Database trigger took too long or failed. Please try logging in, or contact support if the issue persists.';
         }
       } catch (verificationError) {
         print('DEBUG: Error verifying PetOwners record: $verificationError');
@@ -198,92 +189,63 @@ class AuthService {
     }
   }
 
-  // Test method: Sign up with auth only (no PetOwners insert)
-  static Future<String?> signUpAuthOnly({
-    required String email,
-    required String password,
+  // Helper method to verify PetOwners record with retry mechanism
+  static Future<Map<String, dynamic>?> _verifyPetOwnersRecord(
+    String userId, {
+    int maxRetries = 5,
   }) async {
-    try {
-      print('DEBUG: Testing auth-only signup for email: $email');
+    const retryDelay = Duration(seconds: 2);
 
-      final AuthResponse response = await _supabase.auth.signUp(
-        email: email,
-        password: password,
-      );
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      print('DEBUG: PetOwners verification attempt $attempt/$maxRetries');
 
-      print('DEBUG: Auth-only signup result: ${response.user?.id}');
-
-      if (response.user == null) {
-        return 'Failed to create auth user';
+      // Wait 10 seconds between each retry (consistent delay)
+      if (attempt > 1) {
+        print('DEBUG: Waiting 10 seconds before retry...');
+        await Future.delayed(retryDelay);
+      } else {
+        // Small initial delay to let the trigger start
+        print('DEBUG: Initial check after 1 second...');
+        await Future.delayed(const Duration(seconds: 1));
       }
 
-      return null; // Success
-    } catch (e) {
-      print('DEBUG: Auth-only signup failed: $e');
-      return _handleAuthError(e);
-    }
-  }
-
-  // Test method: Sign up without trigger (manual PetOwners insert)
-  static Future<String?> signUpWithoutTrigger({
-    required String email,
-    required String password,
-    required String fullName,
-    required String phone,
-    required String city,
-    required String district,
-    String? profileImage,
-  }) async {
-    try {
-      print('DEBUG: Testing signup WITHOUT trigger for email: $email');
-
-      // Step 1: Sign up with NO metadata to avoid trigger
-      final AuthResponse response = await _supabase.auth.signUp(
-        email: email,
-        password: password,
-        // NO data parameter - this should bypass trigger issues
-      );
-
-      print('DEBUG: Auth signup result: ${response.user?.id}');
-
-      if (response.user == null) {
-        return 'Failed to create auth user';
-      }
-
-      final userId = response.user!.id;
-
-      // Step 2: Manually insert PetOwners record
       try {
-        print('DEBUG: Manually inserting PetOwners record...');
-
-        final insertData = {
-          'user_id': userId,
-          'Full_name': fullName,
-          'phone': phone,
-          'city': city,
-          'district': district,
-        };
-
-        if (profileImage != null && profileImage.isNotEmpty) {
-          insertData['profile_image'] = profileImage;
-        }
-
-        final insertResponse = await _supabase
+        // Also check if ANY PetOwners records exist to debug trigger issues
+        final allRecordsCount = await _supabase
             .from('PetOwners')
-            .insert(insertData)
-            .select('pet_owner_id, user_id')
-            .single();
+            .select('pet_owner_id')
+            .count(CountOption.exact);
 
-        print('DEBUG: Manual PetOwners insert successful: $insertResponse');
-        return null; // Success
-      } catch (insertError) {
-        print('DEBUG: Manual PetOwners insert failed: $insertError');
-        return 'Account created but manual profile setup failed: ${insertError.toString()}';
+        print(
+          'DEBUG: Total PetOwners records in database: ${allRecordsCount.count}',
+        );
+
+        final petOwnerRecord = await _supabase
+            .from('PetOwners')
+            .select('pet_owner_id, user_id, Full_name')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        print('DEBUG: Query result for user $userId: $petOwnerRecord');
+
+        if (petOwnerRecord != null) {
+          print(
+            'DEBUG: PetOwners record found on attempt $attempt: $petOwnerRecord',
+          );
+          return petOwnerRecord;
+        } else {
+          print('DEBUG: PetOwners record not found on attempt $attempt');
+          if (attempt < maxRetries) {
+            print('DEBUG: Will retry in 10 seconds...');
+          }
+        }
+      } catch (e) {
+        print('DEBUG: Error during verification attempt $attempt: $e');
+        if (attempt == maxRetries) rethrow;
       }
-    } catch (e) {
-      print('DEBUG: Signup without trigger failed: $e');
-      return _handleAuthError(e);
     }
+
+    return null; // All retries failed
   }
 
   // Helper method to handle authentication errors

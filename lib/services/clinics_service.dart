@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/clinic.dart';
+// import '../data/edge/clinics_edge_service.dart'; // TODO: Re-enable when Edge Function is deployed
+import 'clinics_service_simple.dart';
 
 class ClinicsService {
   static final SupabaseClient _supabase = Supabase.instance.client;
@@ -28,52 +30,33 @@ class ClinicsService {
       }
 
       final jwt = session.accessToken;
-      if (jwt == null || jwt.isEmpty) {
+      if (jwt.isEmpty) {
         throw Exception('Invalid session token. Please log in again.');
       }
 
-      print('DEBUG: Fetching clinics with user location sorting');
-      print('DEBUG: Session valid, user: ${_supabase.auth.currentUser?.email}');
-
-      // Call the updated clinics-list Edge Function with JWT authentication
-      final res = await _supabase.functions.invoke(
-        'clinics-list',
-        body: {}, // No filters - get all clinics sorted by location
-        headers: {
-          'Authorization': 'Bearer $jwt',
-          'Content-Type': 'application/json',
-        },
+      print('🔍 [CLINICS SERVICE] Fetching clinics with user location sorting');
+      print(
+        '🔍 [CLINICS SERVICE] Session valid, user: ${_supabase.auth.currentUser?.email}',
       );
 
-      // Check for successful response
-      if (res.data == null) {
-        throw Exception('No data received from clinics service');
+      // TEMPORARY: Use direct database query since Edge Function is not deployed
+      // TODO: Deploy Edge Function and switch back to ClinicsEdgeService
+      print(
+        '⚠️ [CLINICS SERVICE] Using direct database query (Edge Function not deployed)',
+      );
+      final clinicsData = await ClinicsServiceSimple.fetchClinicsDirectly();
+
+      print(
+        '✅ [CLINICS SERVICE] Successfully fetched ${clinicsData.length} clinics',
+      );
+
+      // clinicsData is already List<Clinic> from ClinicsServiceSimple
+      // Just return it directly
+      if (clinicsData.isNotEmpty) {
+        print('📋 [CLINICS SERVICE] Sample clinic: ${clinicsData.first.name}');
       }
 
-      print('DEBUG: Raw Edge Function response: ${res.data}');
-
-      // Parse the response data
-      final responseData = res.data as Map<String, dynamic>;
-
-      // Extract clinics array from response
-      if (responseData.containsKey('clinics')) {
-        final clinicsData = responseData['clinics'] as List;
-
-        // Convert to Clinic objects
-        final clinics = clinicsData
-            .map((data) => Clinic.fromMap(data as Map<String, dynamic>))
-            .toList();
-
-        print('DEBUG: Parsed ${clinics.length} clinics with location sorting');
-        print('DEBUG: User location: ${responseData['user_location']}');
-        print(
-          'DEBUG: Sorted by location: ${responseData['sorted_by_location']}',
-        );
-
-        return clinics;
-      } else {
-        throw Exception('No clinics data found in response');
-      }
+      return clinicsData;
     } catch (e) {
       print('DEBUG: Error fetching clinics: $e');
 

@@ -74,6 +74,14 @@ class _ClinicsPageState extends State<ClinicsPage> {
 
         // Error state
         if (snapshot.hasError) {
+          final errorMessage = snapshot.error.toString();
+
+          // Check if it's an authentication error
+          if (errorMessage.contains('No active session') ||
+              errorMessage.contains('Please log in')) {
+            return _buildNotLoggedInState(context);
+          }
+
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -92,16 +100,32 @@ class _ClinicsPageState extends State<ClinicsPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    snapshot.error.toString(),
+                    errorMessage,
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {}); // Trigger rebuild to retry
-                    },
-                    child: const Text('Retry'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {}); // Trigger rebuild to retry
+                        },
+                        child: const Text('Retry'),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pushReplacementNamed('/login');
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Login'),
+                      ),
+                    ],
                   ),
                 ],
               ),

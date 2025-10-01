@@ -17,6 +17,7 @@ class Clinic {
   final int?
   rank; // Location rank from Edge Function (2=same district, 1=same city, 0=other)
   final String? profileImage; // Profile image URL
+  final String? groupType; // Group type (clinic, hospital, etc.)
 
   const Clinic({
     required this.clinicId,
@@ -35,6 +36,7 @@ class Clinic {
     this.distanceInfo,
     this.rank,
     this.profileImage,
+    this.groupType,
   });
 
   factory Clinic.fromMap(Map<String, dynamic> map) {
@@ -70,6 +72,9 @@ class Clinic {
       distanceInfo: map['distance_info'] as String?,
       rank: map['_rank'] != null ? (map['_rank'] as num).toInt() : null,
       profileImage: map['profile_image'] as String?,
+      groupType:
+          map['group_type'] as String? ??
+          'clinic', // Default to 'clinic' if not provided
     );
   }
 
@@ -91,6 +96,7 @@ class Clinic {
       'distance_info': distanceInfo,
       '_rank': rank,
       'profile_image': profileImage,
+      'group_type': groupType,
     };
   }
 
@@ -125,6 +131,7 @@ class Clinic {
     String? distanceInfo,
     int? rank,
     String? profileImage,
+    String? groupType,
   }) {
     return Clinic(
       clinicId: clinicId ?? this.clinicId,
@@ -143,6 +150,7 @@ class Clinic {
       distanceInfo: distanceInfo ?? this.distanceInfo,
       rank: rank ?? this.rank,
       profileImage: profileImage ?? this.profileImage,
+      groupType: groupType ?? this.groupType,
     );
   }
 }
