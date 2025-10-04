@@ -2,9 +2,60 @@ import 'package:flutter/material.dart';
 import '../models/clinic.dart';
 import '../widgets/custom_button.dart';
 import '../theme/app_theme.dart';
+import '../services/clinic_profile_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class ClinicProfileScreen extends StatelessWidget {
+class ClinicProfileScreen extends StatefulWidget {
   const ClinicProfileScreen({super.key});
+
+  @override
+  State<ClinicProfileScreen> createState() => _ClinicProfileScreenState();
+}
+
+class _ClinicProfileScreenState extends State<ClinicProfileScreen> {
+  Map<String, dynamic>? clinicData;
+  List<Map<String, dynamic>> services = [];
+  List<Map<String, dynamic>> doctors = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final clinic = ModalRoute.of(context)?.settings.arguments as Clinic?;
+      if (clinic != null) {
+        _loadClinicProfile(clinic.clinicId);
+      }
+    });
+  }
+
+  Future<void> _loadClinicProfile(String clinicId) async {
+    try {
+      setState(() {
+        isLoading = true;
+        errorMessage = null;
+      });
+
+      final profileData = await ClinicProfileService.fetchCompleteClinicProfile(
+        clinicId,
+      );
+
+      setState(() {
+        clinicData = profileData['clinic'];
+        services = List<Map<String, dynamic>>.from(
+          profileData['services'] ?? [],
+        );
+        doctors = List<Map<String, dynamic>>.from(profileData['doctors'] ?? []);
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = e.toString();
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,6 +66,53 @@ class ClinicProfileScreen extends StatelessWidget {
       return Scaffold(
         appBar: AppBar(title: const Text('Clinic Profile')),
         body: const Center(child: Text('No clinic data found')),
+      );
+    }
+
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          title: Text(clinic.name),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          title: Text(clinic.name),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading clinic profile',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                errorMessage!,
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => _loadClinicProfile(clinic.clinicId),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -78,7 +176,7 @@ class ClinicProfileScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          clinic.name,
+                          clinicData?['name'] ?? clinic.name,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 24,
@@ -87,7 +185,7 @@ class ClinicProfileScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          clinic.specialty ?? 'Veterinary clinic',
+                          'Veterinary clinic',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -116,6 +214,11 @@ class ClinicProfileScreen extends StatelessWidget {
 
                   // Doctors Section
                   _buildDoctorsSection(context),
+
+                  const SizedBox(height: 32),
+
+                  // Opening Hours Section
+                  _buildOpeningHoursSection(context),
 
                   const SizedBox(height: 100), // Space for bottom buttons
                 ],
@@ -150,31 +253,30 @@ class ClinicProfileScreen extends StatelessWidget {
   }
 
   Widget _buildInfoPillsOverlay(BuildContext context, Clinic clinic) {
-    final distance = _parseDistance(clinic.location);
-
     return Row(
       children: [
-        if (clinic.rating != null) ...[
-          _buildOverlayPill(
-            Icons.star,
-            clinic.rating!.toStringAsFixed(1),
-            Colors.amber,
-          ),
-          const SizedBox(width: 8),
-        ],
-        if (distance > 0) ...[
+        // Location pill
+        _buildOverlayPill(
+          Icons.location_on,
+          clinicData?['location'] ?? '${clinic.district}, ${clinic.city}',
+          Colors.blue,
+        ),
+        const SizedBox(width: 8),
+        // Hours pill
+        if (clinicData?['current_status'] != null) ...[
           _buildOverlayPill(
             Icons.access_time,
-            "9:00 AM - 12:00 AM",
-            Colors.red,
+            clinicData!['current_status'] == 'open' ? 'Open Now' : 'Closed',
+            clinicData!['current_status'] == 'open' ? Colors.green : Colors.red,
           ),
           const SizedBox(width: 8),
         ],
-        if (clinic.rating != null) ...[
+        // Rating pill
+        if (clinicData?['avg_rating'] != null) ...[
           _buildOverlayPill(
             Icons.star,
-            clinic.rating!.toStringAsFixed(1),
-            Colors.yellow,
+            '${clinicData!['avg_rating']}',
+            Colors.amber,
           ),
         ],
       ],
@@ -207,12 +309,18 @@ class ClinicProfileScreen extends StatelessWidget {
   }
 
   Widget _buildServicesSection(BuildContext context, Clinic clinic) {
-    final services = [
-      {'name': 'Examination', 'price': clinic.examinationPrice?.toInt() ?? 300},
-      {'name': 'X-ray', 'price': 400},
-      {'name': 'Ultrasound', 'price': 250},
-      {'name': 'CBC', 'price': 200},
-    ];
+    // Use real services data from API, fallback to default if empty
+    final servicesList = services.isNotEmpty
+        ? services
+        : [
+            {
+              'name': 'Examination',
+              'price':
+                  clinicData?['examination_price'] ??
+                  clinic.examinationPrice ??
+                  300,
+            },
+          ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,10 +337,10 @@ class ClinicProfileScreen extends StatelessWidget {
           height: 80,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: services.length,
+            itemCount: servicesList.length,
             separatorBuilder: (context, index) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
-              final service = services[index];
+              final service = servicesList[index];
               return _buildServiceCard(context, service);
             },
           ),
@@ -277,20 +385,8 @@ class ClinicProfileScreen extends StatelessWidget {
   }
 
   Widget _buildDoctorsSection(BuildContext context) {
-    final doctors = [
-      {
-        'name': 'Dr Ahmed Adel tawfik',
-        'experience': '10 years of experience',
-        'availability': '9:00 AM - 05:00 PM',
-        'image': 'https://via.placeholder.com/60',
-      },
-      {
-        'name': 'Dr Kareem Hatem',
-        'experience': '5 years of experience',
-        'availability': '10:00 AM - 07:00 PM',
-        'image': 'https://via.placeholder.com/60',
-      },
-    ];
+    // Use real doctors data from API, fallback to empty if no doctors
+    final doctorsList = doctors.isNotEmpty ? doctors : [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,21 +399,57 @@ class ClinicProfileScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: doctors.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final doctor = doctors[index];
-            return _buildDoctorCard(context, doctor);
-          },
-        ),
+        if (doctorsList.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.medical_services_outlined,
+                  size: 48,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'No doctors available',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'This clinic hasn\'t added doctor profiles yet.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade500),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: doctorsList.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final doctor = doctorsList[index];
+              return _buildDoctorCard(context, doctor);
+            },
+          ),
       ],
     );
   }
 
   Widget _buildDoctorCard(BuildContext context, Map<String, dynamic> doctor) {
+    final isAvailable = doctor['availability_status'] == 'available';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -344,9 +476,9 @@ class ClinicProfileScreen extends StatelessWidget {
                 color: Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: doctor['image'] != null
+              child: doctor['profile_image'] != null
                   ? Image.network(
-                      doctor['image'],
+                      doctor['profile_image'],
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) =>
                           _buildDoctorPlaceholder(context),
@@ -361,7 +493,7 @@ class ClinicProfileScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  doctor['name'],
+                  doctor['name'] ?? 'Dr. Unknown',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
@@ -369,7 +501,9 @@ class ClinicProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  doctor['experience'],
+                  doctor['experience'] ??
+                      doctor['specialization'] ??
+                      'General Veterinarian',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.textSecondary,
                   ),
@@ -380,16 +514,16 @@ class ClinicProfileScreen extends StatelessWidget {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: Colors.green,
+                      decoration: BoxDecoration(
+                        color: isAvailable ? Colors.green : Colors.red,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      doctor['availability'],
+                      doctor['available_hours'] ?? 'Hours not specified',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.green,
+                        color: isAvailable ? Colors.green : Colors.red,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -400,6 +534,130 @@ class ClinicProfileScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildOpeningHoursSection(BuildContext context) {
+    final openingHours = clinicData?['opening_hours'];
+
+    if (openingHours == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Days of the week in order
+    final daysOfWeek = [
+      {'key': 'monday', 'name': 'Monday'},
+      {'key': 'tuesday', 'name': 'Tuesday'},
+      {'key': 'wednesday', 'name': 'Wednesday'},
+      {'key': 'thursday', 'name': 'Thursday'},
+      {'key': 'friday', 'name': 'Friday'},
+      {'key': 'saturday', 'name': 'Saturday'},
+      {'key': 'sunday', 'name': 'Sunday'},
+    ];
+
+    // Get current day for highlighting
+    final today = DateTime.now().weekday; // 1 = Monday, 7 = Sunday
+    final todayKey = daysOfWeek[today - 1]['key'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Opening Hours',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: daysOfWeek.map((day) {
+              final dayKey = day['key']!;
+              final dayName = day['name']!;
+              final dayHours = openingHours[dayKey];
+              final isToday = dayKey == todayKey;
+
+              String hoursText = 'Closed';
+              Color statusColor = Colors.red;
+
+              if (dayHours != null &&
+                  dayHours['open'] != null &&
+                  dayHours['close'] != null &&
+                  dayHours['open'] != 'closed') {
+                hoursText = '${dayHours['open']} - ${dayHours['close']}';
+                statusColor = Colors.green;
+              }
+
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: isToday
+                      ? AppColors.primary.withValues(alpha: 0.05)
+                      : Colors.transparent,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        if (isToday) ...[
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                        Text(
+                          dayName,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: isToday
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: isToday
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
+                              ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      hoursText,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: statusColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -441,11 +699,7 @@ class ClinicProfileScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
             child: IconButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Calling feature coming soon')),
-                );
-              },
+              onPressed: () => _makePhoneCall(context),
               icon: Icon(Icons.phone, color: AppColors.primary, size: 24),
             ),
           ),
@@ -468,6 +722,31 @@ class ClinicProfileScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _makePhoneCall(BuildContext context) async {
+    final phoneNumber = clinicData?['phone'];
+
+    if (phoneNumber == null || phoneNumber.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone number not available')),
+      );
+      return;
+    }
+
+    final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
+
+    try {
+      if (await canLaunchUrl(phoneUri)) {
+        await launchUrl(phoneUri);
+      } else {
+        throw Exception('Could not launch phone app');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not make phone call: $e')));
+    }
   }
 
   double _parseDistance(String location) {

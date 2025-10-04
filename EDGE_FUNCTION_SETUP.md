@@ -332,3 +332,4 @@ If you still get errors:
 3. **Check RLS policies** on Clinic and Rating tables
 4. **Ensure your user exists** in PetOwners table
 5. **Check database permissions**
+
