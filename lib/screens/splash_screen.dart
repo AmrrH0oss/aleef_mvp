@@ -25,7 +25,7 @@ class _SplashScreenState extends State<SplashScreen> {
   void _navigateToNextScreen() {
     final currentUser = AuthService.currentUser;
     if (currentUser != null) {
-      Navigator.of(context).pushReplacementNamed('/clinics');
+      Navigator.of(context).pushReplacementNamed('/home');
     } else {
       Navigator.of(context).pushReplacementNamed('/login');
     }

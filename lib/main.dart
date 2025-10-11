@@ -7,6 +7,7 @@ import 'package:test_screen/screens/login_screen.dart';
 import 'package:test_screen/screens/splash_screen.dart';
 import 'package:test_screen/screens/clinic_profile_screen.dart';
 import 'package:test_screen/screens/book_appointment_screen.dart';
+import 'package:test_screen/screens/home_screen.dart';
 import 'package:test_screen/debug_clinics_test.dart';
 import 'package:test_screen/test_database_access.dart';
 import 'package:test_screen/theme/app_theme.dart';
@@ -34,6 +35,7 @@ class MyApp extends StatelessWidget {
         '/': (_) => const SplashScreen(),
         '/login': (_) => const LoginScreen(),
         '/create-account': (_) => const CreateAccountScreen(),
+        '/home': (_) => const HomeScreen(),
         '/clinics': (_) => const ClinicListScreen(),
         '/clinics-simple': (_) =>
             const ClinicsPage(), // Simple clinics page with ListTile

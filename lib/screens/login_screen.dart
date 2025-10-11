@@ -70,8 +70,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
-        // Navigate to clinics
-        Navigator.of(context).pushReplacementNamed('/clinics');
+        // Navigate to home page
+        Navigator.of(context).pushReplacementNamed('/home');
       } else {
         // Show error
         ScaffoldMessenger.of(context).showSnackBar(

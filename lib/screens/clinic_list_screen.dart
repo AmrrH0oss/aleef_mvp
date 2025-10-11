@@ -296,7 +296,10 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
   }
 
   void _onBottomTap(int index) {
-    if (index == 2) {
+    if (index == 0) {
+      // Navigate to home
+      Navigator.of(context).pushReplacementNamed('/home');
+    } else if (index == 2) {
       // Profile tab - show logout dialog
       _showLogoutDialog();
     } else {

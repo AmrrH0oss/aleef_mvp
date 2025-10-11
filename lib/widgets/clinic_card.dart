@@ -72,15 +72,6 @@ class ClinicCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    clinic.specialty ?? 'General Practice',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                 ],
               ),
             ),
@@ -110,13 +101,6 @@ class ClinicCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                clinic.specialty ?? 'General Practice',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -198,7 +182,7 @@ class ClinicCard extends StatelessWidget {
 
   // Removed unused _buildChevronIcon method
 
-  // Updated info pills with rating, distance info, and price
+  // Updated info pills with rating, location, and price
   Widget _buildInfoPills(BuildContext context) {
     return Wrap(
       spacing: 6,
@@ -213,22 +197,12 @@ class ClinicCard extends StatelessWidget {
                 : clinic.rating!.toStringAsFixed(1),
             const Color(0xFFFFC107),
           ),
-        // Distance info from Edge Function (same district/city/other)
-        if (clinic.distanceInfo != null && clinic.distanceInfo!.isNotEmpty)
+        // Location (district, city) from Supabase
+        if (clinic.district != null && clinic.city != null)
           _buildInfoPill(
-            clinic.locationPriority == 3
-                ? Icons
-                      .location_on // Same district
-                : clinic.locationPriority == 2
-                ? Icons
-                      .location_city // Same city
-                : Icons.location_off, // Other
-            clinic.distanceInfo!,
-            clinic.locationPriority == 3
-                ? const Color(0xFF4CAF50) // Green for same district
-                : clinic.locationPriority == 2
-                ? const Color(0xFF2196F3) // Blue for same city
-                : const Color(0xFF9E9E9E), // Gray for other
+            Icons.location_on,
+            '${clinic.district}, ${clinic.city}',
+            const Color(0xFFE53E3E), // Red color for location
           ),
         // Examination price
         if (clinic.examinationPrice != null)
