@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/clinic.dart';
 import '../services/auth_service.dart';
+import '../services/appointment_service.dart';
 import '../data/edge/clinics_edge_service.dart';
+import '../widgets/appointment_reminder_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,11 +21,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _userProfile;
   int _selectedIndex = 0; // Home tab selected by default
 
+  // Appointment reminder state
+  List<Map<String, dynamic>> _appointments = [];
+  bool _isLoadingAppointments = false;
+  String? _appointmentsError;
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
     _loadClinics();
+    _loadAppointments();
   }
 
   Future<void> _loadUserData() async {
@@ -60,23 +68,74 @@ class _HomeScreenState extends State<HomeScreen> {
       // Convert to Clinic objects
       final clinics = clinicsData.map((data) => Clinic.fromMap(data)).toList();
 
-      setState(() {
-        _clinics = clinics
-            .take(2)
-            .toList(); // Show only first 2 clinics on home page
-        _isLoadingClinics = false;
-      });
+      if (mounted) {
+        setState(() {
+          _clinics = clinics
+              .take(2)
+              .toList(); // Show only first 2 clinics on home page
+          _isLoadingClinics = false;
+        });
+      }
     } catch (e) {
       print('Error loading clinics: $e');
-      setState(() {
-        _clinicsError = _handleClinicError(e);
-        _isLoadingClinics = false;
-      });
+      if (mounted) {
+        setState(() {
+          _clinicsError = _handleClinicError(e);
+          _isLoadingClinics = false;
+        });
+      }
 
       // If session expired, redirect to login
       if (e.toString().contains('No active session')) {
         _redirectToLogin();
       }
+    }
+  }
+
+  Future<void> _loadAppointments() async {
+    try {
+      setState(() {
+        _isLoadingAppointments = true;
+        _appointmentsError = null;
+      });
+
+      final appointments = await AppointmentService.getUpcomingAppointments();
+
+      if (mounted) {
+        setState(() {
+          _appointments = appointments;
+          _isLoadingAppointments = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading appointments: $e');
+      if (mounted) {
+        setState(() {
+          _appointmentsError = _handleAppointmentError(e);
+          _isLoadingAppointments = false;
+        });
+      }
+
+      // If session expired, redirect to login
+      if (e.toString().contains('No authenticated user') ||
+          e.toString().contains('No active session')) {
+        _redirectToLogin();
+      }
+    }
+  }
+
+  String _handleAppointmentError(dynamic error) {
+    if (error.toString().contains('No authenticated user') ||
+        error.toString().contains('No active session')) {
+      return 'Session expired. Please log in again.';
+    } else if (error.toString().contains('Pet owner profile not found')) {
+      return 'Profile not found. Please complete your profile.';
+    } else if (error.toString().contains('Failed to fetch')) {
+      return 'Network error. Please check your connection.';
+    } else if (error.toString().contains('timeout')) {
+      return 'Request timed out. Please try again.';
+    } else {
+      return 'Unable to load appointments. Please try again.';
     }
   }
 
@@ -101,37 +160,11 @@ class _HomeScreenState extends State<HomeScreen> {
       // Navigate to clinics list
       Navigator.of(context).pushNamed('/clinics');
     } else if (index == 2) {
-      // Profile tab - show logout dialog
-      _showLogoutDialog();
+      // Navigate to profile screen
+      Navigator.of(context).pushNamed('/profile');
     } else {
       setState(() => _selectedIndex = index);
     }
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await AuthService.signOut();
-              if (mounted) {
-                Navigator.of(context).pushReplacementNamed('/login');
-              }
-            },
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -152,6 +185,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Add Your Pet Card
                 _buildAddPetCard(),
+
+                const SizedBox(height: 32),
+
+                // Appointment Reminders Section
+                _buildAppointmentRemindersSection(),
 
                 const SizedBox(height: 32),
 
@@ -284,11 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Add pet feature coming soon!'),
-                      ),
-                    );
+                    Navigator.of(context).pushNamed('/addPet');
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
@@ -362,6 +396,160 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAppointmentRemindersSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Upcoming Appointments',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            if (_appointments.isNotEmpty)
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/appointments');
+                },
+                child: const Text(
+                  'View All',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // Appointments content
+        if (_isLoadingAppointments)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (_appointmentsError != null)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red.shade600, size: 24),
+                const SizedBox(height: 8),
+                Text(
+                  'Failed to load appointments',
+                  style: TextStyle(
+                    color: Colors.red.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _appointmentsError!,
+                  style: TextStyle(color: Colors.red.shade600, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _loadAppointments,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          )
+        else if (_appointments.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.calendar_today_outlined,
+                  color: Colors.grey.shade400,
+                  size: 48,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'No Upcoming Appointments',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Book your first appointment with a nearby clinic',
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pushNamed('/clinics');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Find Clinics'),
+                ),
+              ],
+            ),
+          )
+        else
+          // Show appointment cards
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _appointments.length,
+            itemBuilder: (context, index) {
+              final appointment = _appointments[index];
+              return AppointmentReminderCard(
+                appointment: appointment,
+                onTap: () async {
+                  final result = await Navigator.of(
+                    context,
+                  ).pushNamed('/appointmentDetails', arguments: appointment);
+
+                  // If appointment was modified (cancelled/rescheduled), refresh appointments
+                  if (result == true) {
+                    _loadAppointments();
+                  }
+                },
+              );
+            },
+          ),
+      ],
     );
   }
 

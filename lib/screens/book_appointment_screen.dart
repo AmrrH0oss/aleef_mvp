@@ -27,7 +27,10 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     });
 
     try {
-      final result = await BookingService.getAvailableSlots(clinicId, date);
+      final result = await BookingService.getAvailableSlotsDetailed(
+        clinicId,
+        date,
+      );
       List<Map<String, dynamic>> allSlots = List<Map<String, dynamic>>.from(
         result['available_slots'] ?? [],
       );

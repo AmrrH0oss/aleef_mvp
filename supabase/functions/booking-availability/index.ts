@@ -196,3 +196,6 @@ function generateTimeSlots(openTime: string, closeTime: string) {
 
   return slots;
 }
+
+
+

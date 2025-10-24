@@ -300,37 +300,11 @@ class _ClinicListScreenState extends State<ClinicListScreen> {
       // Navigate to home
       Navigator.of(context).pushReplacementNamed('/home');
     } else if (index == 2) {
-      // Profile tab - show logout dialog
-      _showLogoutDialog();
+      // Navigate to profile screen
+      Navigator.of(context).pushNamed('/profile');
     } else {
       setState(() => _selectedIndex = index);
     }
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await AuthService.signOut();
-              if (mounted) {
-                Navigator.of(context).pushReplacementNamed('/login');
-              }
-            },
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildMobileListView() {
